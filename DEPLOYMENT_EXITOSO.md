@@ -29,7 +29,7 @@ La app debería:
 - Settings → Environment Variables
 
 ```
-NEXT_PUBLIC_FIREBASE_API_KEY=AIzaSyBexzm7SHQXDnNfglijAxFXnDPVAakfR74
+NEXT_PUBLIC_FIREBASE_API_KEY=TU_API_KEY_AQUI
 NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=automatic-viral-news.firebaseapp.com
 NEXT_PUBLIC_FIREBASE_PROJECT_ID=automatic-viral-news
 NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=automatic-viral-news.firebasestorage.app
