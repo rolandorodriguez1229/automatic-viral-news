@@ -29,16 +29,6 @@
       ]
     },
     {
-      "collectionGroup": "content_performance",
-      "queryScope": "COLLECTION",
-      "fields": [
-        {
-          "fieldPath": "collected_at",
-          "order": "DESCENDING"
-        }
-      ]
-    },
-    {
       "collectionGroup": "task_queue",
       "queryScope": "COLLECTION",
       "fields": [
