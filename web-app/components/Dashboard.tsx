@@ -9,6 +9,7 @@ import { fetchTrendsNow } from '@/lib/api';
 import StatsCards from './StatsCards';
 import TopicsList from './TopicsList';
 import ContentManager from './ContentManager';
+import AddTrendManual from './AddTrendManual';
 import { BarChart3, TrendingUp, FileText, Settings, Search } from 'lucide-react';
 
 interface DashboardProps {
@@ -165,6 +166,11 @@ export default function Dashboard({ user }: DashboardProps) {
                   </p>
                 </div>
               )}
+            </div>
+
+            {/* Opción para agregar tendencia manual */}
+            <div className="bg-white rounded-lg shadow p-6">
+              <AddTrendManual />
             </div>
 
             <StatsCards stats={stats} loading={statsLoading} />

@@ -86,9 +86,27 @@ export const fetchTrendsNow = functions
       });
     } catch (error) {
       console.error('❌ Error buscando tendencias:', error);
+      
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      
+      // Si es un error de bloqueo de Google Trends, dar un mensaje más útil
+      if (errorMessage.includes('bloqueando') || errorMessage.includes('HTML')) {
+        res.status(503).json({
+          success: false,
+          error: 'Google Trends está bloqueando peticiones desde servidores. Esto es normal ya que Google Trends no tiene una API oficial pública.',
+          suggestion: 'Considera usar una alternativa o agregar tendencias manualmente',
+          alternatives: [
+            'Agregar tendencias manualmente en Firestore',
+            'Usar una API alternativa como SerpAPI',
+            'Configurar un proxy o usar Cloud Run con headers de navegador',
+          ],
+        });
+        return;
+      }
+      
       res.status(500).json({
         success: false,
-        error: error instanceof Error ? error.message : 'Unknown error',
+        error: errorMessage,
       });
     }
   });

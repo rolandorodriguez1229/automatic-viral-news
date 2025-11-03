@@ -17,12 +17,57 @@ export class TrendsService {
    */
   async getDailyTrends(geo = "US"): Promise<TrendingTopic[]> {
     try {
-      const trends = await googleTrends.dailyTrends({
-        trendDate: new Date(),
-        geo: geo,
-      });
+      let trends;
+      let attempts = 0;
+      const maxAttempts = 3;
+      
+      while (attempts < maxAttempts) {
+        try {
+          trends = await googleTrends.dailyTrends({
+            trendDate: new Date(),
+            geo: geo,
+          });
+          
+          // Verificar que la respuesta no sea HTML
+          if (typeof trends === 'string') {
+            const trimmed = trends.trim();
+            if (trimmed.startsWith('<!') || trimmed.startsWith('<html')) {
+              console.error('Google Trends returned HTML:', trimmed.substring(0, 200));
+              throw new Error('Google Trends está bloqueando la petición (retornó HTML)');
+            }
+          }
+          
+          break; // Si llegamos aquí, la respuesta es válida
+        } catch (error: any) {
+          attempts++;
+          console.log(`Intento ${attempts}/${maxAttempts} falló:`, error.message);
+          
+          if (attempts >= maxAttempts) {
+            // Si todos los intentos fallaron, lanzar error más descriptivo
+            throw new Error(
+              `No se pudo obtener tendencias después de ${maxAttempts} intentos. ` +
+              `Google Trends puede estar bloqueando peticiones desde servidores. ` +
+              `Error: ${error.message}`
+            );
+          }
+          
+          // Esperar antes de reintentar (exponencial backoff)
+          await new Promise(resolve => setTimeout(resolve, 2000 * attempts));
+        }
+      }
 
-      const parsed = JSON.parse(trends);
+      if (!trends) {
+        throw new Error('No se obtuvo respuesta de Google Trends');
+      }
+
+      const parsed = typeof trends === 'string' ? JSON.parse(trends) : trends;
+      
+      // Verificar estructura de respuesta
+      if (!parsed || !parsed.default) {
+        console.error('Respuesta inválida de Google Trends:', JSON.stringify(parsed).substring(0, 500));
+        throw new Error('Estructura de respuesta inválida de Google Trends');
+      }
+      
       const trendingSearches = parsed.default?.trendingSearchesDays?.[0]?.trendingSearches || [];
 
       return trendingSearches.slice(0, 10).map((trend: any) => {
