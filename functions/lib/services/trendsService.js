@@ -1,15 +1,104 @@
 "use strict";
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
 var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.TrendsService = void 0;
+const functions = __importStar(require("firebase-functions"));
 const google_trends_api_1 = __importDefault(require("google-trends-api"));
+const serpapiService_1 = require("./serpapiService");
+const newsApiService_1 = require("./newsApiService");
 class TrendsService {
     /**
      * Obtiene las tendencias del día actual
+     * Intenta múltiples fuentes: Google Trends, SerpAPI, NewsAPI
      */
-    async getDailyTrends(geo = "US") {
+    async getDailyTrends(geo = "US", apiKeys) {
+        var _a, _b;
+        // Intentar primero con Google Trends
+        try {
+            return await this.getDailyTrendsFromGoogle(geo);
+        }
+        catch (error) {
+            console.log("Google Trends falló, intentando alternativas...", error);
+        }
+        // Intentar con SerpAPI si está configurado
+        const serpApiKey = (apiKeys === null || apiKeys === void 0 ? void 0 : apiKeys.serpApiKey) || process.env.SERPAPI_KEY || ((_a = functions.config().serpapi) === null || _a === void 0 ? void 0 : _a.key) || '';
+        if (serpApiKey) {
+            try {
+                const serpService = new serpapiService_1.SerpApiService(serpApiKey);
+                const trends = await serpService.getTrendingSearches(geo);
+                if (trends.length > 0) {
+                    console.log(`✅ Obtenidas ${trends.length} tendencias de SerpAPI`);
+                    return trends;
+                }
+            }
+            catch (error) {
+                console.log("SerpAPI falló:", error);
+            }
+        }
+        // Intentar con NewsAPI si está configurado
+        const newsApiKey = (apiKeys === null || apiKeys === void 0 ? void 0 : apiKeys.newsApiKey) || process.env.NEWSAPI_KEY || ((_b = functions.config().newsapi) === null || _b === void 0 ? void 0 : _b.key) || '';
+        if (newsApiKey) {
+            try {
+                const newsService = new newsApiService_1.NewsApiService(newsApiKey);
+                const countryMap = {
+                    'US': 'us',
+                    'MX': 'mx',
+                    'ES': 'es',
+                };
+                const country = countryMap[geo] || 'us';
+                const trends = await newsService.getTrendingNews(country);
+                if (trends.length > 0) {
+                    console.log(`✅ Obtenidas ${trends.length} tendencias de NewsAPI`);
+                    return trends;
+                }
+            }
+            catch (error) {
+                console.log("NewsAPI falló:", error);
+            }
+        }
+        // Si todas fallan, lanzar error
+        throw new Error('No se pudieron obtener tendencias. Google Trends está bloqueando y no hay APIs alternativas configuradas. ' +
+            'Configura SERPAPI_KEY o NEWSAPI_KEY, o agrega tendencias manualmente.');
+    }
+    /**
+     * Obtiene tendencias directamente de Google Trends
+     */
+    async getDailyTrendsFromGoogle(geo = "US") {
         var _a, _b, _c;
         try {
             let trends;

@@ -45,6 +45,7 @@ const db = admin.firestore();
 exports.fetchTrendsNow = functions
     .runWith({ memory: '1GB', timeoutSeconds: 540 })
     .https.onRequest(async (req, res) => {
+    var _a, _b;
     // Configurar CORS
     res.set('Access-Control-Allow-Origin', '*');
     res.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
@@ -55,8 +56,13 @@ exports.fetchTrendsNow = functions
     }
     try {
         console.log('🔍 Buscando tendencias actuales...');
+        // Intentar obtener API keys de Firebase config
+        const functionsConfig = functions.config();
         const trendsService = new trendsService_1.TrendsService();
-        const trends = await trendsService.getDailyTrends('US');
+        const trends = await trendsService.getDailyTrends('US', {
+            serpApiKey: ((_a = functionsConfig.serpapi) === null || _a === void 0 ? void 0 : _a.key) || '',
+            newsApiKey: ((_b = functionsConfig.newsapi) === null || _b === void 0 ? void 0 : _b.key) || '',
+        });
         console.log(`✅ Encontradas ${trends.length} tendencias`);
         const batch = db.batch();
         let addedCount = 0;
@@ -113,13 +119,15 @@ exports.fetchTrendsNow = functions
         if (errorMessage.includes('bloqueando') || errorMessage.includes('HTML')) {
             res.status(503).json({
                 success: false,
-                error: 'Google Trends está bloqueando peticiones desde servidores. Esto es normal ya que Google Trends no tiene una API oficial pública.',
-                suggestion: 'Considera usar una alternativa o agregar tendencias manualmente',
+                error: 'No se pudieron obtener tendencias automáticamente.',
+                message: 'Google Trends está bloqueando peticiones desde servidores.',
+                suggestion: 'Configura una API alternativa (SerpAPI o NewsAPI) o agrega tendencias manualmente',
                 alternatives: [
-                    'Agregar tendencias manualmente en Firestore',
-                    'Usar una API alternativa como SerpAPI',
-                    'Configurar un proxy o usar Cloud Run con headers de navegador',
+                    'Agregar tendencias manualmente usando el botón en el dashboard',
+                    'Configurar SerpAPI: https://serpapi.com (tiene plan gratuito)',
+                    'Configurar NewsAPI: https://newsapi.org (tiene plan gratuito)',
                 ],
+                howToConfigure: 'Ve a Firebase Functions → Config y agrega: SERPAPI_KEY o NEWSAPI_KEY',
             });
             return;
         }

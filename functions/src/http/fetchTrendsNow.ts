@@ -24,8 +24,14 @@ export const fetchTrendsNow = functions
     try {
       console.log('🔍 Buscando tendencias actuales...');
 
+      // Intentar obtener API keys de Firebase config
+      const functionsConfig = functions.config();
+      
       const trendsService = new TrendsService();
-      const trends = await trendsService.getDailyTrends('US');
+      const trends = await trendsService.getDailyTrends('US', {
+        serpApiKey: functionsConfig.serpapi?.key || '',
+        newsApiKey: functionsConfig.newsapi?.key || '',
+      });
 
       console.log(`✅ Encontradas ${trends.length} tendencias`);
 
@@ -91,16 +97,18 @@ export const fetchTrendsNow = functions
       
       // Si es un error de bloqueo de Google Trends, dar un mensaje más útil
       if (errorMessage.includes('bloqueando') || errorMessage.includes('HTML')) {
-        res.status(503).json({
-          success: false,
-          error: 'Google Trends está bloqueando peticiones desde servidores. Esto es normal ya que Google Trends no tiene una API oficial pública.',
-          suggestion: 'Considera usar una alternativa o agregar tendencias manualmente',
-          alternatives: [
-            'Agregar tendencias manualmente en Firestore',
-            'Usar una API alternativa como SerpAPI',
-            'Configurar un proxy o usar Cloud Run con headers de navegador',
-          ],
-        });
+      res.status(503).json({
+        success: false,
+        error: 'No se pudieron obtener tendencias automáticamente.',
+        message: 'Google Trends está bloqueando peticiones desde servidores.',
+        suggestion: 'Configura una API alternativa (SerpAPI o NewsAPI) o agrega tendencias manualmente',
+        alternatives: [
+          'Agregar tendencias manualmente usando el botón en el dashboard',
+          'Configurar SerpAPI: https://serpapi.com (tiene plan gratuito)',
+          'Configurar NewsAPI: https://newsapi.org (tiene plan gratuito)',
+        ],
+        howToConfigure: 'Ve a Firebase Functions → Config y agrega: SERPAPI_KEY o NEWSAPI_KEY',
+      });
         return;
       }
       

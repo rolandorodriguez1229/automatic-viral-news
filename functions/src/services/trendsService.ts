@@ -1,4 +1,7 @@
+import * as functions from "firebase-functions";
 import googleTrends from "google-trends-api";
+import { SerpApiService } from "./serpapiService";
+import { NewsApiService } from "./newsApiService";
 
 export interface TrendingTopic {
   keyword: string;
@@ -14,8 +17,66 @@ export interface TrendingTopic {
 export class TrendsService {
   /**
    * Obtiene las tendencias del día actual
+   * Intenta múltiples fuentes: Google Trends, SerpAPI, NewsAPI
    */
-  async getDailyTrends(geo = "US"): Promise<TrendingTopic[]> {
+  async getDailyTrends(
+    geo = "US",
+    apiKeys?: { serpApiKey?: string; newsApiKey?: string }
+  ): Promise<TrendingTopic[]> {
+    // Intentar primero con Google Trends
+    try {
+      return await this.getDailyTrendsFromGoogle(geo);
+    } catch (error) {
+      console.log("Google Trends falló, intentando alternativas...", error);
+    }
+
+    // Intentar con SerpAPI si está configurado
+    const serpApiKey = apiKeys?.serpApiKey || process.env.SERPAPI_KEY || functions.config().serpapi?.key || '';
+    if (serpApiKey) {
+      try {
+        const serpService = new SerpApiService(serpApiKey);
+        const trends = await serpService.getTrendingSearches(geo);
+        if (trends.length > 0) {
+          console.log(`✅ Obtenidas ${trends.length} tendencias de SerpAPI`);
+          return trends;
+        }
+      } catch (error) {
+        console.log("SerpAPI falló:", error);
+      }
+    }
+
+    // Intentar con NewsAPI si está configurado
+    const newsApiKey = apiKeys?.newsApiKey || process.env.NEWSAPI_KEY || functions.config().newsapi?.key || '';
+    if (newsApiKey) {
+      try {
+        const newsService = new NewsApiService(newsApiKey);
+        const countryMap: Record<string, string> = {
+          'US': 'us',
+          'MX': 'mx',
+          'ES': 'es',
+        };
+        const country = countryMap[geo] || 'us';
+        const trends = await newsService.getTrendingNews(country);
+        if (trends.length > 0) {
+          console.log(`✅ Obtenidas ${trends.length} tendencias de NewsAPI`);
+          return trends;
+        }
+      } catch (error) {
+        console.log("NewsAPI falló:", error);
+      }
+    }
+
+    // Si todas fallan, lanzar error
+    throw new Error(
+      'No se pudieron obtener tendencias. Google Trends está bloqueando y no hay APIs alternativas configuradas. ' +
+      'Configura SERPAPI_KEY o NEWSAPI_KEY, o agrega tendencias manualmente.'
+    );
+  }
+
+  /**
+   * Obtiene tendencias directamente de Google Trends
+   */
+  private async getDailyTrendsFromGoogle(geo = "US"): Promise<TrendingTopic[]> {
     try {
       let trends;
       let attempts = 0;
