@@ -1,14 +1,15 @@
 'use client';
 
 import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { User, signOut } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 import { getDashboardStats, getTrendingTopics, TrendingTopic } from '@/lib/firestore';
+import { fetchTrendsNow } from '@/lib/api';
 import StatsCards from './StatsCards';
 import TopicsList from './TopicsList';
 import ContentManager from './ContentManager';
-import { BarChart3, TrendingUp, FileText, Settings } from 'lucide-react';
+import { BarChart3, TrendingUp, FileText, Settings, Search } from 'lucide-react';
 
 interface DashboardProps {
   user: User;
@@ -16,6 +17,7 @@ interface DashboardProps {
 
 export default function Dashboard({ user }: DashboardProps) {
   const [activeTab, setActiveTab] = useState<'dashboard' | 'content' | 'analytics'>('dashboard');
+  const queryClient = useQueryClient();
 
   const { data: stats, isLoading: statsLoading } = useQuery({
     queryKey: ['dashboardStats'],
@@ -27,6 +29,19 @@ export default function Dashboard({ user }: DashboardProps) {
     queryKey: ['trendingTopics'],
     queryFn: () => getTrendingTopics(20),
     refetchInterval: 30000,
+  });
+
+  const fetchTrendsMutation = useMutation({
+    mutationFn: fetchTrendsNow,
+    onSuccess: (data) => {
+      if (data.success) {
+        // Refrescar los datos después de agregar tendencias
+        setTimeout(() => {
+          queryClient.invalidateQueries({ queryKey: ['trendingTopics'] });
+          queryClient.invalidateQueries({ queryKey: ['dashboardStats'] });
+        }, 2000);
+      }
+    },
   });
 
   const handleSignOut = async () => {
@@ -102,6 +117,56 @@ export default function Dashboard({ user }: DashboardProps) {
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {activeTab === 'dashboard' && (
           <div className="space-y-6">
+            {/* Botón para buscar tendencias */}
+            <div className="bg-white rounded-lg shadow p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-xl font-semibold text-gray-900">
+                    Buscar Tendencias Actuales
+                  </h2>
+                  <p className="text-sm text-gray-500 mt-1">
+                    Busca las tendencias más populares de Google Trends y agrégalas al sistema
+                  </p>
+                </div>
+                <button
+                  onClick={() => fetchTrendsMutation.mutate()}
+                  disabled={fetchTrendsMutation.isPending}
+                  className="flex items-center space-x-2 px-4 py-2 bg-primary-600 text-white rounded-md hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  <Search className="w-5 h-5" />
+                  <span>
+                    {fetchTrendsMutation.isPending ? 'Buscando...' : 'Buscar Tendencias'}
+                  </span>
+                </button>
+              </div>
+              {fetchTrendsMutation.isSuccess && fetchTrendsMutation.data.success && (
+                <div className="mt-4 p-4 bg-green-50 border border-green-200 rounded-md">
+                  <p className="text-green-800 font-medium">
+                    ✅ {fetchTrendsMutation.data.message}
+                  </p>
+                  {fetchTrendsMutation.data.addedTrends && fetchTrendsMutation.data.addedTrends.length > 0 && (
+                    <ul className="mt-2 space-y-1">
+                      {fetchTrendsMutation.data.addedTrends.map((trend, idx) => (
+                        <li key={idx} className="text-sm text-green-700">
+                          • {trend.keyword} (Score: {trend.score})
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                  <p className="text-sm text-green-600 mt-2">
+                    ⏳ Los scripts se generarán automáticamente en 1-2 minutos...
+                  </p>
+                </div>
+              )}
+              {fetchTrendsMutation.isError && (
+                <div className="mt-4 p-4 bg-red-50 border border-red-200 rounded-md">
+                  <p className="text-red-800">
+                    ❌ Error al buscar tendencias. Intenta nuevamente.
+                  </p>
+                </div>
+              )}
+            </div>
+
             <StatsCards stats={stats} loading={statsLoading} />
             <TopicsList topics={topics || []} loading={topicsLoading} />
           </div>

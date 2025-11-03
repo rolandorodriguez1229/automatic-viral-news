@@ -4,10 +4,11 @@
   "description": "Sistema automatizado para crear contenido viral basado en tendencias",
   "scripts": {
     "dev": "cd web-app && npm run dev",
-    "build": "cd web-app && npm install && npm run build",
+    "build": "cd web-app && npm run build",
     "deploy:functions": "cd functions && npm run build && firebase deploy --only functions",
     "deploy:web": "cd web-app && npm run build && firebase deploy --only hosting",
-    "deploy:all": "npm run deploy:functions && npm run deploy:web"
+    "deploy:all": "npm run deploy:functions && npm run deploy:web",
+    "fetch-trends": "node scripts/fetchAndAddTrend.js"
   },
   "keywords": [
     "automation",
@@ -18,4 +19,3 @@
   "author": "",
   "license": "MIT"
 }
-

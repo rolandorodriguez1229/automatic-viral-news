@@ -42,4 +42,5 @@ admin.initializeApp();
 // Exportar todas las funciones
 __exportStar(require("./schedulers/trendingMonitor"), exports);
 __exportStar(require("./processors/contentGenerator"), exports);
+__exportStar(require("./http/fetchTrendsNow"), exports);
 //# sourceMappingURL=index.js.map
